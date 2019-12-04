@@ -2,14 +2,16 @@
   (:require [clojure.string :as str]))
 
 (def input
-  (-> (slurp "/Users/crdva/Projects/AoC2019/src/adventofcode19/inputs/day3.txt")
+  (-> (slurp "./inputs/day3.txt")
       (clojure.string/split #"\n")))
 
+(defn abs-val
+  [vl]
+  (if (> 0 vl) (- vl) vl))
 
 (defn apply-step
   [position step]
   (merge-with + position step))
-
 
 (defn get-steps
   [input]
@@ -39,39 +41,60 @@
         first-pt (first line)]
     (= (:x second-pt) (:x first-pt))))
 
-(defn intersect?
-  [line-one line-two]
-  (not= (vertical-line? line-one)
-        (vertical-line? line-two)))
-
 (defn intersection
   [line-one line-two]
-  (let [pt {:x nil :y nil}]
-    (if (vertical-line? line-one)
-      {:x (:x (first line-one))
-       :y (:y (first line-two))}
-      {:x (:x (first line-two))
-       :y (:y (first line-one))})))
+  (if (vertical-line? line-one)
+    {:x (:x (first line-one))
+     :y (:y (first line-two))}
+    {:x (:x (first line-two))
+     :y (:y (first line-one))}))
+
+(defn between-x
+  [line pt]
+  (let [x-coords (sort (map :x line))]
+    (< (first x-coords) (:x pt) (last x-coords))))
+
+(defn between-y
+  [line pt]
+  (let [y-coords (sort (map :y line))]
+    (< (first y-coords) (:y pt) (last y-coords))))
 
 (defn valid-intersection
   [line-one line-two]
   (let [pt (intersection line-one line-two)]
-    pt
-    #_(if (vertical-line? line-one)
-      (if (and (< (:y pt) (:y (second line-two)))
-               (> (:y pt) (:y (first line-two)))
-               (< (:x pt) (:x (second line-one)))
-               (> (:x pt) (:x (first line-one))))
+    (if (vertical-line? line-one)
+      (when (and (between-x line-two pt)
+                 (between-y line-one pt))
         pt)
-      (if (and (< (:y pt) (:y (second line-one)))
-               (> (:y pt) (:y (first line-one)))
-               (< (:x pt) (:x (second line-two)))
-               (> (:x pt) (:x (first line-two))))
+      (when (and (between-x line-one pt)
+                 (between-y line-two pt))
         pt))))
+
+(defn distance-from-port
+  [pt]
+  (+ (abs-val (:x pt))
+     (abs-val (:y pt))))
+
+(defn get-number-of-steps
+  [line line-path intersect]
+  (reduce (fn [acc path]
+            (let [pt2 (second path)
+                  pt (first path)
+                  y-steps (abs-val (- (:y pt2) (:y pt)))
+                  x-steps (abs-val (- (:x pt2) (:x pt)))]
+              (if (= line path)
+                (reduced (if (= (:y (second path)) (:y (first path)))
+                           (+ acc (- (:x (first path))
+                                     (:x intersect)))
+                           (+ acc (- (:y (first path))
+                                     (:y intersect)))))
+                (+ acc y-steps x-steps)))) 0 line-path))
 
 (defn day-three
   []
-  (let [wire-one-lines (->> (first input)
+  (let [#_#_input ["R8,U5,L5,D3"
+                   "U7,R6,D4,L4"]
+        wire-one-lines (->> (first input)
                             get-steps
                             (map get-step-count)
                             get-path
@@ -80,13 +103,24 @@
                             get-steps
                             (map get-step-count)
                             get-path
-                            get-lines)]
-    (remove nil? (for [line-from-one wire-one-lines
-                       line-from-two wire-two-lines]
-                   (if (intersect? line-from-one line-from-two)
-                     (valid-intersection line-from-one line-from-two))))))
+                            get-lines)
+        intersections (remove nil? (for [line-from-one wire-one-lines
+                                         line-from-two wire-two-lines]
+                                     (valid-intersection line-from-one line-from-two)))
+        lines-creating-intersections (reduce (fn [acc [one two]]
+                                               (if (valid-intersection one two)
+                                                 (conj acc [one two (valid-intersection one two)])
+                                                 acc))
+                                             []
+                                             (for [line-from-one wire-one-lines
+                                                   line-from-two wire-two-lines]
+                                               [line-from-one line-from-two]))]
+    [(apply min (for [[l1 l2 pt] lines-creating-intersections]
+                  (+ (get-number-of-steps l1 wire-one-lines pt)
+                     (get-number-of-steps l2 wire-two-lines pt))))
+     (apply min (map distance-from-port intersections))]))
+
 
 (day-three)
 
-(count (distinct (day-three)))
 
