@@ -3,12 +3,9 @@
 
 (def input
   (clojure.string/split
-   (slurp "/Users/crdva/Projects/AoC2019/src/adventofcode19/inputs/day6.txt") #"\n"))
-
-
+   (slurp "./inputs/day6.txt") #"\n"))
 
 (def graph {})
-
 
 (defn parse-edge
   "An edge comes in the form of `XXX)YYY` such that
@@ -29,12 +26,12 @@
 
 (defn checksum
   ([g v]
-   (dfs-traversal g v 1))
+   (checksum g v 1))
   ([g v level]
    (let [direct-orbit-count (count (-> g v :orbitters))
          indirect-orbit-count (* (- level 1) direct-orbit-count)]
      (+ (reduce + 0 (for [orbitter (-> g v :orbitters)]
-                      (dfs-traversal g orbitter (inc level))))
+                      (checksum g orbitter (inc level))))
         direct-orbit-count
         indirect-orbit-count))))
 
@@ -62,41 +59,30 @@
        empty?
        not))
 
-(defn travel-inspect
-  [g start f]
-  (let-fn [(travel [g root f]
-                   (for [orbitter (-> g root :orbitters)]
-                     (f g r))) ]))
-
-(defn common-orbitter
+(defn common-ancestor
   ([g x y]
-   (common-orbitter g :COM #{x y} 1 []))
-  ([g root seen exp ancestors]
-   (-> (let [orbitters (-> g root :orbitters)
-             new-seen (remove (set orbitters) seen)
-             ancestors (if (= seen new-seen)
-                         ancestors
-                         (conj ancestors root))
-             ]
-         (println "SEEN: " new-seen " anc: " ancestors)
-         (if (empty? new-seen)
-           ancestors
-           (for [orbitter orbitters]
-             (common-orbitter g orbitter new-seen exp ancestors))))
-       flatten
-       first)))
+   (common-ancestor g :COM :COM [x y] 1))
+  ([g root ancestor orbits level]
+   (let [orbit-f (orbital-line? g root (first orbits))
+         orbit-l (orbital-line? g root (second orbits))
+         ca (if (and orbit-f orbit-l)
+              root
+              ancestor)
+         ancestors (for [orbitter (-> g root :orbitters)]
+                     (common-ancestor g orbitter ca orbits (inc level)))]
+     (->> (if (not= ca ancestor)
+            (conj ancestors {ca level})
+            ancestors)
+          flatten))))
 
 (defn orbital-transfers
   [g start end]
   (let [start-level (first (orbital-level g start))
         end-level (first (orbital-level g end))
-        level-diff (Math/abs (- end-level start-level))]
-
-    (if (> end-level start-level)
-      (if (orbital-line? end-level start-level)
-        level-diff
-        (+ 2 level-diff)))
-    ))
+        ca  (first (vals (last (common-ancestor g start end))))]
+    (- (+ (Math/abs (- start-level  ca))
+          (Math/abs (- end-level  ca)))
+       2)))
 
 (defn create-graph
   [input]
@@ -106,28 +92,15 @@
             graph
             nodes)))
 
-(def sample-input ["COM)B"
-                   "B)C"
-                   "C)D"
-                   "H)E"
-                   "E)F"
-                   "B)G"
-                   "G)H"
-                   "D)I"
-                   "E)J"
-                   "J)K"
-                   "K)L"])
+(defn day6
+  []
+  (orbital-transfers (create-graph input) :YOU :SAN))
 
 
-(first (orbital-level (create-graph sample-input) :I))
 
-(orbital-transfers (create-graph sample-input) :I :J)
 
-(orbital-line? (create-graph sample-input) :D :J)
 
-(common-orbitter (create-graph sample-input) :J :I)
 
-(keys (create-graph sample-input))
 
 
 
