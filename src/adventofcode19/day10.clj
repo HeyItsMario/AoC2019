@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.math.combinatorics :as combo]))
 
-(def input (slurp "/Users/mcordova/Projects/adventofcode19/src/adventofcode19/inputs/day10.txt"))
+(def input (slurp ""))
 
 (def grid (mapv #(str/split % #"") (str/split-lines input)))
 
@@ -19,8 +19,14 @@
   [[x1 y1] [x2 y2]]
   (let [dy (- y2 y1)
         dx (- x2 x1)
-        angle (Math/toDegrees (Math/atan2 dy dx))]
+        angle (+ 90 (Math/toDegrees (Math/atan2 dy dx)))]
     (+ angle (* (Math/ceil (/ (- angle) 360)) 360))))
+
+(defn get-distance
+  [[sx sy] [x y]]
+  (let [dy (- y sy)
+        dx (- x sx)]
+    (Math/hypot dx dy)))
 
 (def locations
   (map (fn [a]
@@ -28,11 +34,32 @@
                                    :when (not= a b)]
                                (create-angle a b))))]) asteroids))
 
-(defn day10
+
+(defn day10-part1
   []
   (last (sort-by second locations)))
 
-(day10)
+(def station (first (day10-part1)))
 
 
+(def laser-targets
+  (for [a asteroids
+        :when (not= station a)]
+    {:location a
+     :distance (get-distance station a)
+     :angle (create-angle station a)}))
 
+(def order-of-explosions
+  (sort-by key (group-by :angle (sort-by :distance laser-targets))))
+
+
+(loop [asteroids (map second order-of-explosions)
+       count (atom 0)]
+  (if (seq asteroids)
+    (for [a asteroids]
+      (when (not (nil? (first a)))
+        (swap! count inc)
+        (println @count ": " (first a) " destroyed at: " (:location (first a)))))
+    (recur (remove empty? (map rest asteroids)) count)))
+
+(+ 7 (* 17 100))
