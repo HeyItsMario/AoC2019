@@ -17,11 +17,13 @@
    {:program input
     :pointer 0
     :heap {}
+    :outputs []
     :relative-base 0})
-  ([input pointer off-set heap]
+  ([input pointer off-set heap outputs]
    {:program input
     :pointer pointer
     :heap heap
+    :outputs outputs
     :relative-base off-set}))
 
 (defn parse-mode
@@ -64,14 +66,14 @@
         (get (:program program) pointer))))
 
 (defn show-output
-  [{:keys [program pointer relative-base heap] :as prg} modes params]
+  [{:keys [program pointer relative-base heap outputs] :as prg} modes params]
   (let [[_ _ mode1] modes
         output (get-by-mode prg (+ pointer 1) mode1)]
     (println "OUTPUT: " output)
-    (create-program program (+ pointer 2) relative-base heap)))
+    (create-program program (+ pointer 2) relative-base heap (conj outputs output))))
 
 (defn get-input
-  [{:keys [program pointer relative-base heap] :as prg} modes {:keys [phase signal] :as params}]
+  [{:keys [program pointer relative-base heap outputs] :as prg} modes {:keys [phase signal] :as params}]
   (let [[_ _ mode1] modes
         store-at (get program (+ pointer 1))
         store-at (if (= (str mode1) "2")
@@ -85,10 +87,11 @@
      relative-base
      (if (< store-at (count program))
        heap
-       (assoc-in heap [store-at] 2)))))
+       (assoc-in heap [store-at] 2))
+     outputs)))
 
 (defn adder
-  [{:keys [program pointer relative-base heap] :as prg} modes f]
+  [{:keys [program pointer relative-base heap outputs] :as prg} modes f]
   (let [[mode3 mode2 mode1] modes
         arg1          (get-by-mode prg (+ pointer 1) mode1)
         arg2          (get-by-mode prg (+ pointer 2) mode2)
@@ -104,19 +107,20 @@
      relative-base
      (if (< store-at (count program))
        heap
-       (assoc-in heap [store-at] (f arg1 arg2))))))
+       (assoc-in heap [store-at] (f arg1 arg2)))
+     outputs)))
 
 (defn jump-if
-  [{:keys [program pointer relative-base heap] :as prg} modes f]
+  [{:keys [program pointer relative-base heap outputs] :as prg} modes f]
   (let [[_ mode2 mode1] modes
         arg1            (get-by-mode prg (+ pointer 1) mode1)
         arg2            (get-by-mode prg (+ pointer 2) mode2)]
     (if (f arg1)
-      (create-program program arg2 relative-base heap)
-      (create-program program (+ pointer 3) relative-base heap))))
+      (create-program program arg2 relative-base heap outputs)
+      (create-program program (+ pointer 3) relative-base heap outputs))))
 
 (defn set-when
-  [{:keys [program pointer relative-base heap] :as prg} modes f]
+  [{:keys [outputs program pointer relative-base heap] :as prg} modes f]
   (let [[mode3 mode2 mode1] modes
         arg1          (get-by-mode prg (+ pointer 1) mode1)
         arg2          (get-by-mode prg (+ pointer 2) mode2)
@@ -133,19 +137,16 @@
      relative-base
      (if (< store-at (count program))
        heap
-       (assoc-in heap [store-at] value)))))
+       (assoc-in heap [store-at] value))
+     outputs)))
 
 (defn base-off-set
-  [{:keys [program pointer relative-base heap] :as prg} modes]
+  [{:keys [program pointer relative-base heap outputs] :as prg} modes]
   (let [[_ _ mode1] modes
         arg1 (get-by-mode prg (+ pointer 1) mode1)]
-    (create-program program (+ pointer 2) (+ relative-base arg1) heap)))
+    (create-program program (+ pointer 2) (+ relative-base arg1) heap outputs)))
 
 (defn operate
-  "Should always get a pointer pointing to a valid instruction.
-   Executes instruction and returns a vector containing the updated program
-   and the pointer pointing to the next instruction as well as any params.
-   NOTE: If operation is 99 then returns :halt"
   [{:keys [program pointer] :as prg} & params]
   (let [instruction (parse-instruction (get program pointer 99))
         modes (:modes instruction)]

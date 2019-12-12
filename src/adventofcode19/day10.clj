@@ -28,11 +28,11 @@
         dx (- x sx)]
     (Math/hypot dx dy)))
 
-(def locations
-  (map (fn [a]
-         [a (count (distinct (for [b asteroids
-                                   :when (not= a b)]
-                               (create-angle a b))))]) asteroids))
+(time (def locations
+        (mapv (fn [a]
+               [a (count (distinct (for [b asteroids
+                                         :when (not= a b)]
+                                     (create-angle a b))))]) asteroids)))
 
 
 (defn day10-part1
@@ -53,13 +53,11 @@
   (sort-by key (group-by :angle (sort-by :distance laser-targets))))
 
 
-(loop [asteroids (map second order-of-explosions)
-       count (atom 0)]
-  (if (seq asteroids)
-    (for [a asteroids]
-      (when (not (nil? (first a)))
-        (swap! count inc)
-        (println @count ": " (first a) " destroyed at: " (:location (first a)))))
-    (recur (remove empty? (map rest asteroids)) count)))
+(time (loop [asteroids (map second order-of-explosions)
+             count (atom 0)]
+        (if (seq asteroids)
+          (for [a asteroids]
+            (when (not (nil? (first a)))
+              (swap! count inc)))
+          (recur (remove empty? (map rest asteroids)) count))))
 
-(+ 7 (* 17 100))
