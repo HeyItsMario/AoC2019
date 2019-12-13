@@ -69,7 +69,7 @@
   [{:keys [program pointer relative-base heap outputs] :as prg} modes]
   (let [[_ _ mode1] modes
         output (get-by-mode prg (+ pointer 1) mode1)]
-    (println "OUTPUT: " output)
+    #_(println "OUTPUT: " output)
     (create-program program (+ pointer 2) relative-base heap (conj outputs output))))
 
 (defn get-input
@@ -92,7 +92,7 @@
      input)))
 
 (defn get-external-input
-  [{:keys [program pointer relative-base heap outputs input] :as prg} modes]
+  [{:keys [program pointer relative-base heap outputs] :as prg} modes]
   (let [[_ _ mode1] modes
         store-at (get program (+ pointer 1))
         store-at (if (= (str mode1) "2")
@@ -104,18 +104,7 @@
      :heap heap
      :outputs outputs
      :need-input? true
-     :store-at store-at}
-    #_(create-program
-     (if (< store-at (count program))
-       (assoc-in program [store-at] input)
-       program)
-     (+ pointer 2)
-     relative-base
-     (if (< store-at (count program))
-       heap
-       (assoc-in heap [store-at] input))
-     outputs
-     input)))
+     :store-at store-at}))
 
 (defn adder
   [{:keys [program pointer relative-base heap outputs] :as prg} modes f]
@@ -176,7 +165,7 @@
     (create-program program (+ pointer 2) (+ relative-base arg1) heap outputs)))
 
 (defn operate
-  [{:keys [program pointer] :as prg} & params]
+  [{:keys [program pointer heap] :as prg} & params]
   (let [instruction (parse-instruction (get program pointer 99))
         modes (:modes instruction)]
     (condp = (:op instruction)
@@ -189,7 +178,7 @@
       "07" (set-when prg modes <)
       "08" (set-when prg modes =)
       "09" (base-off-set prg modes)
-      "99" :halt
+      "99" {:halt? true :program program :heap heap}
       :else prg)))
 
 (defn run-program-9
