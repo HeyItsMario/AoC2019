@@ -1,7 +1,7 @@
 (ns adventofcode19.day12
   (:require [clojure.string :as str]))
 
-(def input (slurp "/Users/crdva/Projects/AoC2019/src/adventofcode19/inputs/day12.txt"))
+(def input (slurp "day12.txt"))
 
 (defn create-moons
   [input]
@@ -44,7 +44,7 @@
 ;; Apply gravitaional effect on the velocities
 (defn part1
   [steps]
-  (doseq [_ (range steps)]
+  (doseq [step (range steps)]
     (doseq [x (range 4)]
       (doseq [y (range (inc x) 4)]
         (let [m1 (get @moons x)
@@ -54,46 +54,77 @@
           (swap! moons assoc-in [y 1] v2))))
     (doseq [x (range 4)]
       (let [pos (apply-velocity (get @moons x))]
-        (swap! moons assoc-in [x 0] pos))))
+        (swap! moons assoc-in [x 0] pos)))
+
+    )
   (->> (map (fn [[ps vs]]
               (* (reduce + 0 (map #(Math/abs %) ps))
                  (reduce + 0 (map #(Math/abs %) vs)))) @moons)
        (reduce + 0)))
 
+(part1 10)
+
+(defn cycle?
+  [m1 m2]
+  (if (= m1 m2)
+    (println "EQUALS: " m1 " and " m2))
+  (= m1 m2))
+
+(defn detect-cycles
+  [initials moons]
+  (-> (->> (map-indexed (fn [idx [_ vel]]
+                          [idx (cycle? (get-in initials [idx 1]) vel)]) moons)
+           (into {})
+           (group-by val))
+      (get true)))
+
+(defn add-to-orbits
+  [orbits [m a]]
+  (conj orbits [m a]))
+
+(defn detect-orbits
+  [moons orbits step]
+  (remove nil? (for [axis (range 3)]
+                 (let [a (get-in moons [0 1 axis])
+                       b (get-in moons [1 1 axis])
+                       c (get-in moons [2 1 axis])
+                       d (get-in moons [3 1 axis])]
+                   (when (= a b c d 0)
+                     (when (not (contains? orbits axis))
+                       (println "Moons axis " axis " is 0 at step: " step)
+                       axis))))))
+
 (defn part2
   [_]
-  (let [configs #{@moons}
-        count 0]
-    (loop [initial @moons
-           count 1]
+  (loop [initial-moons @moons
+         orbits #{}
+         cnt 1]
+    ;; Apply gravity
+    (doseq [x (range 4)]
+      (doseq [y (range (inc x) 4)]
+        (let [m1 (get @moons x)
+              m2 (get @moons y)
+              [[_ v1] [_ v2]] (apply-gravity m1 m2)]
+          (swap! moons assoc-in [x 1] v1)
+          (swap! moons assoc-in [y 1] v2))))
+    ;; Apply velocities
+    (doseq [x (range 4)]
+      (let [pos (apply-velocity (get @moons x))]
+        (swap! moons assoc-in [x 0] pos)))
 
-      (println "A-z: " (get-in @moons [0 0 2]))
-      ;; Apply gravity
-      (doseq [x (range 4)]
-        (doseq [y (range (inc x) 4)]
-          (let [m1 (get @moons x)
-                m2 (get @moons y)
-                [[_ v1] [_ v2]] (apply-gravity m1 m2)]
-            (swap! moons assoc-in [x 1] v1)
-            (swap! moons assoc-in [y 1] v2))))
-      ;; Apply velocities
-      (doseq [x (range 4)]
-        (let [pos (apply-velocity (get @moons x))]
-          (swap! moons assoc-in [x 0] pos)))
+    ;; Finished step
+    (let [poss-orbs (detect-orbits @moons orbits cnt)
+          orbits (if (seq poss-orbs)
+                   (apply conj orbits poss-orbs)#_(reduce #(add-to-orbits %1 %2) orbits poss-orbs)
+                   orbits)]
 
-      (if (or (= count 1000)(= initial @moons))
-        count
-        (recur (conj configs @moons) (inc count)))
-      )))
+      (if (or (= cnt 30000000)
+              (= 3 (count orbits)))
+        [orbits cnt]
+        (recur initial-moons orbits (inc cnt))))))
 
 
-(part2 :start)
+(apply conj #{} [[nil true]])
 
-(defn gcd [a b]
-  (if (zero? b)
-    a
-    (recur b (mod a b))))
+(part2 :statr)
 
-(gcd 28 44)
-
-(gcd 6 4)
